@@ -1,0 +1,120 @@
+# Import necessary libraries
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
+import plotly.graph_objects as go
+import ipywidgets as widgets
+from ipywidgets import interactive
+from IPython.display import display
+
+# Function to fetch stock data from Yahoo Finance
+def fetch_stock_data(ticker, start_date, end_date):
+    stock_data = yf.download(ticker, start=start_date, end=end_date)
+    stock_data.reset_index(inplace=True)  # Reset the index to use 'Date' as a regular column
+    stock_data['Date'] = pd.to_datetime(stock_data['Date'])
+    return stock_data
+
+# Function to prepare data (feature engineering)
+def prepare_data(stock_data):
+    stock_data['Year'] = stock_data['Date'].dt.year
+    stock_data['Month'] = stock_data['Date'].dt.month
+    stock_data['Day'] = stock_data['Date'].dt.day
+
+    # Selecting features (X) and target (y)
+    X = stock_data[['Open', 'High', 'Low', 'Volume', 'Year', 'Month', 'Day']]
+    y = stock_data['Close']
+
+    return X, y, stock_data
+
+# Function to train the model and predict stock prices
+def train_model(X, y):
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    model = LinearRegression()
+    model.fit(X_train, y_train)
+
+    # Predicting on test data
+    y_pred = model.predict(X_test)
+
+    # Calculating Mean Squared Error (MSE)
+    mse = mean_squared_error(y_test, y_pred)
+    return model, mse, y_pred, y_test, X_test, y_test
+
+# Function to plot the results (actual vs predicted stock prices)
+def plot_results(y_test, y_pred, stock_data, chart_type, X_test):
+    # Ensure that we plot using the same dates for test data
+    test_dates = stock_data['Date'][-len(y_test):]
+
+    if chart_type == 'Scatter Plot':
+        plt.figure(figsize=(12, 6))
+        plt.scatter(test_dates, y_test, color='blue', label='Actual Price')
+        plt.scatter(test_dates, y_pred, color='red', label='Predicted Price', alpha=0.5)
+        plt.title('Stock Price Prediction - Scatter Plot')
+        plt.xlabel('Date')
+        plt.ylabel('Stock Price')
+        plt.xticks(rotation=45)
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+    elif chart_type == 'Area Plot':
+        plt.figure(figsize=(12, 6))
+        plt.fill_between(test_dates, y_test, y_pred, color='lightgray', alpha=0.5)
+        plt.plot(test_dates, y_test, color='blue', label='Actual Price')
+        plt.plot(test_dates, y_pred, color='red', linestyle='dashed', label='Predicted Price')
+        plt.title('Stock Price Prediction - Area Plot')
+        plt.xlabel('Date')
+        plt.ylabel('Stock Price')
+        plt.xticks(rotation=45)
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+    elif chart_type == 'Histogram':
+        plt.figure(figsize=(12, 6))
+        plt.hist(y_test - y_pred, bins=20, color='blue', alpha=0.7, label='Prediction Error')
+        plt.title('Stock Price Prediction - Histogram of Errors')
+        plt.xlabel('Prediction Error')
+        plt.ylabel('Frequency')
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+# Main function to handle the prediction and UI interaction
+def stock_prediction(ticker, start_date, end_date, chart_type):
+    # Fetch and prepare data
+    stock_data = fetch_stock_data(ticker, start_date, end_date)
+    X, y, stock_data = prepare_data(stock_data)
+
+    # Train the model and evaluate it
+    model, mse, y_pred, y_test, X_test, y_test = train_model(X, y)
+
+    # Display model performance (Mean Squared Error)
+    print(f"Mean Squared Error: {mse}")
+
+    # Plot the results (Actual vs Predicted)
+    plot_results(y_test, y_pred, stock_data, chart_type, X_test)
+
+# Create interactive widgets for frontend
+ticker_widget = widgets.Text(value='AAPL', description='Stock Ticker:', disabled=False)
+start_date_widget = widgets.DatePicker(value=pd.to_datetime('2015-01-01'), description='Start Date:', disabled=False)
+end_date_widget = widgets.DatePicker(value=pd.to_datetime('2023-01-01'), description='End Date:', disabled=False)
+chart_type_widget = widgets.Dropdown(
+    options=['Scatter Plot', 'Area Plot', 'Histogram'],
+    value='Scatter Plot',
+    description='Chart Type:',
+    disabled=False
+)
+
+# Create the interactive function
+interactive_plot = interactive(stock_prediction,
+                               ticker=ticker_widget,
+                               start_date=start_date_widget,
+                               end_date=end_date_widget,
+                               chart_type=chart_type_widget)
+
+# Display the widgets
+display(interactive_plot)
