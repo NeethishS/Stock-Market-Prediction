@@ -163,7 +163,7 @@ if st.sidebar.button("Analyze Stock"):
         st.error(f"An error occurred: {str(e)}")
 
 # Instructions
-if not st.sidebar.button("Analyze Stock"):
+else:
     st.info("👈 Enter a stock symbol in the sidebar and click 'Analyze Stock' to get started!")
     
     st.markdown("""
